@@ -43,42 +43,41 @@ const geojsonObject = {
       },
       geometry: {
         type: "Point",
-        name: "copeaux",
         coordinates: copeaux
       }
     }
   ]
 };
 
-const getText = (feature, resolution) => {
-  const text = feature.get("name");
-  return text;
-};
+const pointStyle = new Style({
+  image: new CircleStyle({
+    radius: 8,
+    fill: new Fill({ color: "purple" }),
+    stroke: new Stroke({ color: "purple", width: 1 })
+  })
+});
 
-const createTextStyle = (feature, resolution) =>
-  new Text({
+const pointHoverStyle = new Style({
+  image: new CircleStyle({
+    radius: 8,
+    fill: new Fill({ color: "purple" }),
+    stroke: new Stroke({ color: "purple", width: 1 })
+  }),
+  text: new Text({
     textAlign: "center",
-    text: getText(feature, resolution),
     placement: "POINT",
-    font: "bold 18",
-    fill: new Fill({ color: "black" })
-  });
-
-const pointStyleFunction = (feature, resolution) =>
-  new Style({
-    image: new CircleStyle({
-      radius: 8,
-      fill: new Fill({ color: "purple" }),
-      stroke: new Stroke({ color: "purple", width: 1 })
-    }),
-    text: createTextStyle(feature, resolution)
-  });
+    font: "bold 22",
+    stroke: new Stroke({ color: "purple", width: 2 }),
+    fill: new Fill({ color: "white" }),
+    scale: 1.5
+  })
+});
 
 const vectorPoints = new VectorLayer({
   source: new VectorSource({
     features: new GeoJSON().readFeatures(geojsonObject)
   }),
-  style: pointStyleFunction
+  style: pointStyle
 });
 
 var map = new Map({
@@ -95,4 +94,38 @@ var map = new Map({
     center: nws,
     zoom: 14
   })
+});
+
+const featureOverlay = new VectorLayer({
+  source: new VectorSource(),
+  map: map,
+  style: feature => {
+    pointHoverStyle.getText().setText(feature.get("name"));
+    return pointHoverStyle;
+  }
+});
+
+var highlight;
+const displayFeatureInfo = pixel => {
+  vectorPoints.getFeatures(pixel).then(features => {
+    const feature = features.length ? features[0] : undefined;
+
+    if (feature !== highlight) {
+      if (highlight) {
+        featureOverlay.getSource().removeFeature(highlight);
+      }
+      if (feature) {
+        featureOverlay.getSource().addFeature(feature);
+      }
+      highlight = feature;
+    }
+  });
+};
+
+map.on("pointermove", e => {
+  if (e.dragging) {
+    return;
+  }
+  const pixel = map.getEventPixel(e.originalEvent);
+  displayFeatureInfo(pixel);
 });
